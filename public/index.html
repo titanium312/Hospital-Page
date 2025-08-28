@@ -2,110 +2,32 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Lista de HTML (Vercel)</title>
+  <title>Lista de HTML</title>
   <link rel="icon" href="/favicon.ico"/>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8'/%3E%3Ctext x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-size='36' fill='white'%3EH%3C/text%3E%3C/svg%3E"/>
-  <style>
-    body{font-family:system-ui,Arial,sans-serif;max-width:800px;margin:40px auto;padding:0 16px}
-    .error{background:#ffe6e6;border:1px solid #ffb3b3;padding:12px;border-radius:8px;margin:12px 0}
-    .muted{opacity:.7;font-size:.9em}
-    ul{line-height:1.9}
-    code{background:#f3f3f5;padding:2px 4px;border-radius:4px}
-  </style>
 </head>
 <body>
   <h1>Archivos HTML detectados</h1>
-  <p class="muted">En Vercel se expone <code>/api/html-files</code> como función serverless. Si no existe, cae a GitHub.</p>
-
-  <div id="msg"></div>
   <ul id="htmlList"></ul>
-
   <script>
-    const GH_OWNER = "titanium312";
-    const GH_REPO  = "Hospital-Page";
-    const GH_PATH  = "public";
-
-    function showError(html){
-      const msg = document.getElementById("msg");
-      msg.innerHTML = '<div class="error">'+ html +'</div>';
-    }
-
-    function renderList(files){
-      const ul = document.getElementById("htmlList");
-      ul.innerHTML = "";
-      if(!files || !files.length){
-        showError("No se encontraron archivos <code>.html</code>.");
-        return;
-      }
-      for(const f of files){
-        const li = document.createElement("li");
-        const a = document.createElement("a");
-        a.href = f.url || f;
-        a.textContent = f.name || f;
-        a.target = "_blank";
-        li.appendChild(a);
-        ul.appendChild(li);
-      }
-    }
-
-    async function callVercelApi(){
-      const res = await fetch("/api/html-files", {cache:"no-store"});
-      if(!res.ok){
-        const text = await res.text();
-        throw new Error("HTTP "+res.status+" — "+text.slice(0,120));
-      }
-      const data = await res.json();
-      return (data.files || []).map(p => ({ name: p.replace(/^\/+/, ""), url: p }));
-    }
-
-    async function fetchDir(path){
-      const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${path}`;
-      const res = await fetch(url, {headers:{'Accept':'application/vnd.github.v3+json'}});
-      if(!res.ok){
-        const t = await res.text();
-        throw new Error("GitHub API "+res.status+" — "+t.slice(0,120));
-      }
-      return res.json();
-    }
-
-    async function listHtmlFromGitHub(path){
-      const items = await fetchDir(path);
-      const out = [];
-      for(const it of items){
-        if(it.type === "file" && it.name.toLowerCase().endsWith(".html")){
-          out.push({name: it.path, url: it.download_url});
-        }else if(it.type === "dir"){
-          const nested = await listHtmlFromGitHub(it.path);
-          out.push(...nested);
-        }
-      }
-      return out;
-    }
-
-    (async () => {
+    async function cargarLista() {
       try {
-        // Quick check: API up?
-        const ping = await fetch("/api/ping").then(r => r.ok ? r.json() : Promise.reject(r.status));
-        console.log("ping:", ping);
-      } catch(_) {}
-
-      try {
-        const files = await callVercelApi();
-        renderList(files);
-        document.getElementById("msg").innerHTML = '<p class="muted">Origen: función serverless de Vercel (<code>/api/html-files</code>).</p>';
+        const res = await fetch("/api/html-files");
+        if(!res.ok) throw new Error("API error: " + res.status);
+        const { files } = await res.json();
+        const ul = document.getElementById("htmlList");
+        files.forEach(f => {
+          const li = document.createElement("li");
+          const a = document.createElement("a");
+          a.href = f;
+          a.textContent = f;
+          li.appendChild(a);
+          ul.appendChild(li);
+        });
       } catch (e) {
-        showError("No se pudo usar <code>/api/html-files</code>. Motivo: " + e.message + "<br/>Intentando con GitHub API…");
-        try{
-          const files = await listHtmlFromGitHub(GH_PATH);
-          renderList(files);
-          const msg = document.getElementById("msg");
-          msg.innerHTML += '<p class="muted">Origen: GitHub API.</p>';
-        }catch(eg){
-          showError("También falló GitHub API: "+ eg.message + "<br/><small>Revisa <code>GH_OWNER</code>, <code>GH_REPO</code> y <code>"+GH_PATH+"</code>.</small>");
-        }
+        document.body.innerHTML += "<p style='color:red'>Error: " + e.message + "</p>";
       }
-    })();
+    }
+    cargarLista();
   </script>
 </body>
 </html>
