@@ -1,29 +1,106 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Lista de HTML</title>
+  <style>
+    body{font-family:system-ui,Arial,sans-serif;max-width:800px;margin:40px auto;padding:0 16px}
+    .error{background:#ffe6e6;border:1px solid #ffb3b3;padding:12px;border-radius:8px;margin:12px 0}
+    .muted{opacity:.7;font-size:.9em}
+  </style>
 </head>
 <body>
   <h1>Archivos HTML detectados</h1>
+  <p class="muted">Primero intentamos <code>/api/html-files</code> (servidor Express). Si no existe, usamos la API pública de GitHub como respaldo.</p>
+
+  <div id="msg"></div>
   <ul id="htmlList"></ul>
 
   <script>
-    async function cargarLista() {
-      const res = await fetch("/api/html-files");
-      const { files } = await res.json();
+    // Config para el plan B (API de GitHub)
+    const GH_OWNER = "titanium312";
+    const GH_REPO  = "Hospital-Page";
+    const GH_PATH  = "public"; // carpeta donde están tus HTML
+
+    function showError(html){
+      const msg = document.getElementById("msg");
+      msg.innerHTML = '<div class="error">'+ html +'</div>';
+    }
+
+    function renderList(files){
       const ul = document.getElementById("htmlList");
       ul.innerHTML = "";
-      files.forEach(f => {
+      if(!files || !files.length){
+        showError("No se encontraron archivos <code>.html</code>.");
+        return;
+      }
+      for(const f of files){
         const li = document.createElement("li");
         const a = document.createElement("a");
-        a.href = f;
-        a.textContent = f;
+        a.href = f.url || f;   // soporta objeto {url} o string
+        a.textContent = f.name || f;
+        a.target = "_blank";
         li.appendChild(a);
         ul.appendChild(li);
-      });
+      }
     }
-    cargarLista();
+
+    async function callExpress(){
+      const res = await fetch("/api/html-files", {cache:"no-store"});
+      if(!res.ok){
+        const text = await res.text();
+        throw new Error("HTTP "+res.status+" — "+text.slice(0,120));
+      }
+      const data = await res.json();
+      if(!data || !Array.isArray(data.files)) throw new Error("Respuesta inválida del servidor.");
+      // Convertimos a objetos con name/url
+      return data.files.map(p => ({ name: p.replace(/^\/+/, ""), url: p }));
+    }
+
+    async function fetchDir(path){
+      const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${path}`;
+      const res = await fetch(url, {headers:{'Accept':'application/vnd.github.v3+json'}});
+      if(!res.ok){
+        const t = await res.text();
+        throw new Error("GitHub API "+res.status+" — "+t.slice(0,120));
+      }
+      return res.json();
+    }
+
+    async function listHtmlFromGitHub(path){
+      const items = await fetchDir(path);
+      const out = [];
+      for(const it of items){
+        if(it.type === "file" && it.name.toLowerCase().endsWith(".html")){
+          out.push({name: it.path, url: it.download_url});
+        }else if(it.type === "dir"){
+          const nested = await listHtmlFromGitHub(it.path);
+          out.push(...nested);
+        }
+      }
+      return out;
+    }
+
+    (async () => {
+      try {
+        // Plan A: Express local
+        const files = await callExpress();
+        renderList(files);
+        document.getElementById("msg").innerHTML = '<p class="muted">Origen: servidor Express (<code>/api/html-files</code>).</p>';
+      } catch (e) {
+        // Si falla (404 o JSON inválido), usamos plan B
+        showError("No se pudo usar <code>/api/html-files</code>. Motivo: " + e.message + "<br/>Intentando con GitHub API…");
+        try{
+          const files = await listHtmlFromGitHub(GH_PATH);
+          renderList(files);
+          const msg = document.getElementById("msg");
+          msg.innerHTML += '<p class="muted">Origen: GitHub API.</p>';
+        }catch(eg){
+          showError("También falló GitHub API: "+ eg.message + "<br/><small>Verifica <code>GH_OWNER</code>, <code>GH_REPO</code> y la carpeta <code>"+GH_PATH+"</code>.</small>");
+        }
+      }
+    })();
   </script>
 </body>
 </html>
