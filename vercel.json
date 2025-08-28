@@ -1,6 +1,7 @@
 {
   "functions": {
     "api/html-files.js": {
+      "entrypoint": "api/html-files.js",
       "runtime": "nodejs20.x",
       "includeFiles": "public/*"
     },
