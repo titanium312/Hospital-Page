@@ -1,10 +1,18 @@
 {
   "functions": {
+    "api/html-files.js": {
+      "runtime": "nodejs20.x",
+      "includeFiles": "public/*"
+    },
     "api/**/*.js": {
       "runtime": "nodejs20.x"
-    },
-    "api/html-files": {
-      "source": "api/html-files.js"
     }
+  },
+  "routes": [
+    {
+      "src": "/api/html-files",
+      "dest": "api/html-files.js"
+    }
+  ]
   }
 }
