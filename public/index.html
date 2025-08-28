@@ -2,14 +2,28 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Servidor estático Node.js</title>
+  <title>Lista de HTML</title>
 </head>
 <body>
-  <h1>¡Hola desde Node.js!</h1>
-  <p>Este es un HTML servido de forma estática 🚀</p>
-  <nav>
-    <a href="/contacto.html">Contacto</a>
-  </nav>
+  <h1>Archivos HTML detectados</h1>
+  <ul id="htmlList"></ul>
+
+  <script>
+    async function cargarLista() {
+      const res = await fetch("/api/html-files");
+      const { files } = await res.json();
+      const ul = document.getElementById("htmlList");
+      ul.innerHTML = "";
+      files.forEach(f => {
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = f;
+        a.textContent = f;
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+    }
+    cargarLista();
+  </script>
 </body>
 </html>
